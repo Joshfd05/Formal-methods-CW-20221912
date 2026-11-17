@@ -108,7 +108,7 @@ OPERATIONS
             current_phase := match_setup ||
             report := teams_completed
         ELSE
-            team_members := team_members <+ {team|-> members} ||
+            team_members := tea m_members <+ {team|-> members} ||
             report := success
         END
     END;
@@ -130,7 +130,7 @@ OPERATIONS
         ELSIF matches_between(team_of(player_one(players)), team_of(player_two(players))) >= 12 
         THEN report := team_match_limit
         ELSE
-            scheduled_matches := scheduled_matches  <- players ||
+            scheduled_matches := scheduled_matches  <- players || // <- apoends the pair to the end of the sequence
             report := success
         END
     END;
@@ -139,10 +139,11 @@ OPERATIONS
     // Removes the most recently scheduled match
     report <-- undo =
     BEGIN
-        IF current_phase /= match_setup or scheduled_matches = []
+        IF current_phase /= match_setup or scheduled_matches = [] // must be in a match setup and have at least one match toundo
         THEN report := failure
         ELSE
-            scheduled_matches := front(scheduled_matches) ||
+            scheduled_matches := front(scheduled_matches) || // front() returns all elements except the last (removes the most recent match)
+            report := success
             report := success
         END
     END;
@@ -152,13 +153,13 @@ OPERATIONS
     report <-- proceed =
     BEGIN 
         IF current_phase = match_setup & 
-            (!(pp).(pp : PLAYERS => match_count(pp) =6) & 
+            (!(pp).(pp : PLAYERS => match_count(pp) =6) &  // every player has 6 matches
                 !(t1, t2).(t1 : TEAMS & t2 : TEAMS & t1 /= t2 => matches_between(team_members(t1), team_members(t2)) = 12))
         THEN 
             current_phase := game_play ||
             report := success 
         ELSE 
-            report := failure 
+            report := failure // schedule is not complete yet
         END 
     END;
 
@@ -166,20 +167,20 @@ OPERATIONS
     // plays the first scheduled match, awards a point to the winner
     report <-- nextGame =
     BEGIN
-        IF current_phase /= game_play or scheduled_matches = []
-        THEN report := failure 
+        IF current_phase /= game_play or scheduled_matches = [] 
+        THEN report := failure // must be in game play ewith at least one match remaining
         ELSIF ability(player_one(current_match)) < ability(player_two(current_match))
         THEN
-            scheduled_matches := tail(scheduled_matches) ||
-            player_scores := player_scores <+ {player_one(current_match) |-> player_scores(player_one(current_match)) + 1} ||
+            scheduled_matches := tail(scheduled_matches) || // tail()removes the first element (match just played) 
+            player_scores := player_scores <+ {player_one(current_match) |-> player_scores(player_one(current_match)) + 1} || // override player one's score with current +1
             team_scores := team_scores <+
-            {team_name_of(player_one(current_match)) |-> team_scores(team_name_of(player_one(current_match))) + 1} ||
+            {team_name_of(player_one(current_match)) |-> team_scores(team_name_of(player_one(current_match))) + 1} || // override player one's temam score with +1
             report := success
         ELSE
             scheduled_matches := tail(scheduled_matches) ||
             player_scores := player_scores <+
-            {player_two(current_match) |-> player_scores(player_two(current_match)) + 1} ||
-            team_scores := team_scores <+ {team_name_of(player_two(current_match)) |-> team_scores(team_name_of(player_two(current_match))) +1} ||
+            {player_two(current_match) |-> player_scores(player_two(current_match)) + 1} || // override player two's score with current +1
+            team_scores := team_scores <+ {team_name_of(player_two(current_match)) |-> team_scores(team_name_of(player_two(current_match))) +1} || // override player two's team score with current +1
             report := success
         END
     END;
@@ -189,11 +190,12 @@ OPERATIONS
     report <-- restart =
     BEGIN 
         IF current_phase = game_play & scheduled_matches = []
+            // can only restart when all matches played and in a game play
         THEN
-            current_phase := team_selection ||
-            team_members := TEAMS * {{}} ||
-            player_scores := PLAYERS * {0} ||
-            team_scores := TEAMS * {0} ||
+            current_phase := team_selection || // reset phase
+            team_members := TEAMS * {{}} || // clear all team assignments
+            player_scores := PLAYERS * {0} || // reset player scores to 0
+            team_scores := TEAMS * {0} || // reset team scores to 0
             report := success
         ELSE
             report := failure
@@ -204,7 +206,7 @@ OPERATIONS
     // returns the scores of all players in a given team
     scores <-- playerScores(team) =
     PRE
-        team : TEAMS
+        team : TEAMS // must be a valid team name
     THEN
         scores := team_members(team) <| player_scores // domain restriction. filter player_scores to only the players in this team filter
     END
