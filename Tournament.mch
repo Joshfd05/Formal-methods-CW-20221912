@@ -50,7 +50,7 @@ DEFINITIONS
     
     current_match == first(scheduled_matches); // returns first element from sequence(next match to be played in next game) 
     assigned_players == {pp | pp: PLAYERS & #(tt).(tt : TEAMS & pp : team_members(tt))}; 
-    team_of(pp) == {qq | qq : PLAYERS & #(tt).(tt : TEAMS & pp : team_members(tt) & qq : team_members(tt))}; // returns 
+    team_of(pp) == {qq | qq : PLAYERS & #(tt).(tt : TEAMS & pp : team_members(tt) & qq : team_members(tt))}; // returns the set of players  on the same team as player pp
     team_name_of(pp) == (team_members~)(team_of(pp)); 
     match_count(pp) == card(scheduled_matches |> ({pp} * PLAYERS \/ PLAYERS * {pp})); // Counts how many scheduled matches involve player pp in either position. Used to enforce the 6-match limit
     matches_between(aa, bb) == card(scheduled_matches |> (aa * bb \/ bb * aa))
